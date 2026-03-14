@@ -1,0 +1,49 @@
+version: "3.9"
+
+# Lance les 3 applications du projet (Keycloak doit déjà tourner sur le port 8080)
+# Usage : docker compose -f docker-compose.app.yml up --build
+#
+# Variables d'environnement requises :
+#   KEYCLOAK_CLIENT_SECRET : secret du client app-springboot dans Keycloak
+
+services:
+
+  app-springboot:
+    build: ./app-springboot
+    image: app-springboot:latest
+    container_name: app-springboot
+    ports:
+      - "8090:8090"
+    environment:
+      # URL Keycloak accessible depuis les conteneurs vers l'hôte
+      SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_KEYCLOAK_ISSUER_URI: http://host.docker.internal:8080/realms/bzhcamp
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://host.docker.internal:8080/realms/bzhcamp
+      PLANETS_SERVICE_URL: http://service-springboot:8091/planets
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
+    depends_on:
+      - service-springboot
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  service-springboot:
+    build: ./service-springboot-rest
+    image: service-springboot:latest
+    container_name: service-springboot
+    ports:
+      - "8091:8091"
+    environment:
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://host.docker.internal:8080/realms/bzhcamp
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://host.docker.internal:8080/realms/bzhcamp/protocol/openid-connect/certs
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  keycloak-angular:
+    build: ./keycloak-angular
+    image: keycloak-angular:latest
+    container_name: keycloak-angular
+    ports:
+      - "4200:80"
+
+networks:
+  default:
+    driver: bridge
